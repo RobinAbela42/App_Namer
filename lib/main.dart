@@ -1,9 +1,18 @@
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 
 void main() {
-  runApp(MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.portraitUp,
+  ]).then((_) {
+    runApp(MyApp());
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -35,6 +44,11 @@ class MyAppState extends ChangeNotifier {
 
   var favorites = <WordPair>[];
 
+  void removeFavorite(fav) {
+    favorites.remove(fav);
+    notifyListeners();
+  }
+
   void toggleFavorite() {
     if (favorites.contains(current)) {
       favorites.remove(current);
@@ -44,8 +58,6 @@ class MyAppState extends ChangeNotifier {
     notifyListeners();
   }
 }
-
-
 
 class MyHomePage extends StatefulWidget {
   @override
@@ -67,39 +79,66 @@ class _MyHomePageState extends State<MyHomePage> {
       default:
         throw UnimplementedError('aucun composant pour $selectedIndex');
     }
-    return Scaffold(
-      body: Container(
-        color: Theme.of(context).colorScheme.primaryContainer,
-        child: page,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: [
-          BottomNavigationBarItem (
-            icon: Icon(Icons.home),
-            label: 'Accueil',
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth < 450) {
+        return Scaffold(
+          body: Container(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: page,
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favoris',
+          bottomNavigationBar: BottomNavigationBar(
+            items: [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home),
+                label: 'Accueil',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.favorite),
+                label: 'Favoris',
+              ),
+            ],
+            currentIndex: selectedIndex,
+            onTap: (value) {
+              setState(() {
+                selectedIndex = value;
+              });
+            },
           ),
-        ],
-        currentIndex: selectedIndex,
-        onTap: (value) {
-          setState(() {
-            selectedIndex = value;
-          });
-        },
-      ),
-    );
+        );
+      } else {
+        return Row(
+          children: [
+            NavigationRail(
+              destinations: [
+                NavigationRailDestination(
+                    icon: Icon(Icons.home), label: Text('Home')),
+                NavigationRailDestination(
+                    icon: Icon(Icons.favorite), label: Text('Favoris')),
+              ],
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (value) {
+                setState(() {
+                  selectedIndex = value;
+                });
+              },
+            ),
+            Expanded(
+                child: Container(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: page,
+            )),
+          ],
+        );
+      }
+    });
   }
 }
-
 
 class GeneratorPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
-    var pair = appState.current;  
+    var pair = appState.current;
 
     IconData icon;
     if (appState.favorites.contains(pair)) {
@@ -118,7 +157,6 @@ class GeneratorPage extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-
               // ↓ Ajoutez ces 2 composants
               ElevatedButton.icon(
                 onPressed: () {
@@ -153,47 +191,45 @@ class BigCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
-    var theme = Theme.of(context); 
+    var theme = Theme.of(context);
     var style = theme.textTheme.displayMedium!.copyWith(
-    color: theme.colorScheme.onPrimary,
-  );
+      color: theme.colorScheme.onPrimary,
+    );
     return Card(
-      
-      color: theme.colorScheme.primary,  
-      
+      color: theme.colorScheme.primary,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Text(pair.asPascalCase, 
-          style: style,
-          semanticsLabel: pair.asPascalCase
-        ),
+        child: Text(pair.asPascalCase,
+            style: style, semanticsLabel: pair.asPascalCase),
       ),
     );
   }
 }
 
-
-
-class FavoritesPage extends StatelessWidget{
+class FavoritesPage extends StatelessWidget {
   @override
-  
-  Widget build(BuildContext context ){
+  Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
-    
+
     return Column(
-        children: [
-          Expanded(
-              child: ListView(
-                
-                children: [
-                  Center(child: Text('Favoris : ')),
-                  for (var favs in appState.favorites)
-                    Center(child: SmallCard(favs: favs)),
-                ],
-              ),
+      children: [
+        Expanded(
+          child: ListView(
+            children: [
+              Center(child: Text('Favoris : ')),
+              for (var favs in appState.favorites)
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  SmallCard(favs: favs),
+                  ElevatedButton(
+                      onPressed: () {
+                        appState.removeFavorite(favs);
+                      },
+                      child: Text("Remove"))
+                ]),
+            ],
           ),
-        ],
+        ),
+      ],
     );
   }
 }
@@ -207,18 +243,17 @@ class SmallCard extends StatelessWidget {
   final WordPair favs;
 
   @override
-  
   Widget build(BuildContext context) {
-    var theme = Theme.of(context); 
+    var theme = Theme.of(context);
     var style = theme.textTheme.displaySmall!.copyWith(
-    color: theme.colorScheme.onPrimary,
+      color: theme.colorScheme.onPrimary,
     );
     return Card(
-      color: theme.colorScheme.primary,  
-      
+      color: theme.colorScheme.primary,
       child: Padding(
         padding: const EdgeInsets.all(10.0),
-        child: Text(favs.asPascalCase,
+        child: Text(
+          favs.asPascalCase,
           style: style,
         ),
       ),
